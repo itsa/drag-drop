@@ -58,7 +58,8 @@ module.exports = function (window) {
         NodePlugin = require('dom-ext')(window).Plugins.NodePlugin,
         ctrlPressed = false,
         initialised = false,
-        DD, dropEffect, NodeDD, NodeDropzone;
+        dropEffect = 'move',
+        DD, NodeDD, NodeDropzone;
 
     require('window-ext')(window);
 
@@ -172,7 +173,7 @@ console.info(NAME, '_defFnOver: default function dd-over');
         _defFnStart: function(e) {
             var instance = this,
                 customEvent;
-            e.emitterName || (e.emitterName='UI'),
+            e.emitterName = e.emitterName || e.target.getAttr('dd-emitter-name') || 'UI',
             customEvent = e.emitterName + ':dd-drag';
 console.info(NAME, '_defFnStart: default function UI:dd-start. Defining customEvent '+customEvent);
             Event.defineEvent(customEvent).defaultFn(instance._defFnDrag.bind(instance));
@@ -249,7 +250,7 @@ console.info(NAME, '_defineOverEv');
                             var dropzoneAccept = dropzone.getAttr('dropzone') || '',
                                 dropzoneMove = REGEXP_MOVE.test(dropzoneAccept),
                                 dropzoneCopy = REGEXP_COPY.test(dropzoneAccept),
-                                dragOverPromise, dragOutEvent, allowed, xMouseLast, yMouseLast;
+                                dragOverPromise, dragOutEvent, effectAllowed, emitterAllowed, dropzoneEmitter, xMouseLast, yMouseLast;
 
                             if (e2.clientX) {
                                 ddProps.xMouseLast = e2.clientX + window.getScrollLeft();
@@ -258,43 +259,50 @@ console.info(NAME, '_defineOverEv');
 
                             // check if the mouse is inside the dropzone
                             // also check if the mouse is inside the dragged node: the dragged node might have been constrained
-                            // and check if the dragged node is allowed to go into the dropzone
+                            // and check if the dragged node is effectAllowed to go into the dropzone
                             xMouseLast = ddProps.xMouseLast;
                             yMouseLast = ddProps.yMouseLast;
-                            allowed = (!dropzoneMove && !dropzoneCopy) || (dropzoneCopy && (dropEffect==='copy')) || (dropzoneMove && (dropEffect==='move'));
-                            if (dropEffect && allowed && dropzone.insidePos(xMouseLast, yMouseLast) && ddProps.dragNode.insidePos(xMouseLast, yMouseLast)) {
-                                overDropzone = true;
-                                e.dropTarget = dropzone;
-                                // mouse is in area of dropzone
-                                dragOverPromise = Promise.manage();
-                                e.over = dragOverPromise;
-                                dragOutEvent = Event.after(
-                                    ['mousemove', 'dd-fake-mousemove'],
-                                    function(e3) {
-console.info(NAME, 'outside dropzone: fulfilling promise');
-                                        dragOverPromise.fulfill(e3.target);
-                                    },
-                                    function(e3) {
-                                        var allowed, dropzoneAccept, dropzoneMove, dropzoneCopy;
-                                        if (e3.type==='dd-fake-mousemove') {
-                                            dropzoneAccept = dropzone.getAttr('dropzone') || '';
-                                            dropzoneMove = REGEXP_MOVE.test(dropzoneAccept);
-                                            dropzoneCopy = REGEXP_COPY.test(dropzoneAccept);
-                                            allowed = (!dropzoneMove && !dropzoneCopy) || (dropzoneCopy && (dropEffect==='copy')) || (dropzoneMove && (dropEffect==='move'));
-                                            return !allowed;
+
+                            if (dropzone.insidePos(xMouseLast, yMouseLast) && ddProps.dragNode.insidePos(xMouseLast, yMouseLast)) {
+                                effectAllowed = (!dropzoneMove && !dropzoneCopy) || (dropzoneCopy && (dropEffect==='copy')) || (dropzoneMove && (dropEffect==='move'));
+                                dropzoneEmitter = instance.getDropzoneEmitter(dropzoneAccept);
+console.warn(dropzoneEmitter+' | '+emitterName);
+                                emitterAllowed = !dropzoneEmitter || (dropzoneEmitter===emitterName);
+console.warn(emitterAllowed);
+                                if (effectAllowed && emitterAllowed) {
+                                    overDropzone = true;
+                                    e.dropTarget = dropzone;
+                                    // mouse is in area of dropzone
+                                    dragOverPromise = Promise.manage();
+                                    e.over = dragOverPromise;
+                                    dragOutEvent = Event.after(
+                                        ['mousemove', 'dd-fake-mousemove'],
+                                        function(e3) {
+    console.info(NAME, 'outside dropzone: fulfilling promise');
+                                            dragOverPromise.fulfill(e3.target);
+                                        },
+                                        function(e3) {
+                                            var effectAllowed, dropzoneAccept, dropzoneMove, dropzoneCopy;
+                                            if (e3.type==='dd-fake-mousemove') {
+                                                dropzoneAccept = dropzone.getAttr('dropzone') || '';
+                                                dropzoneMove = REGEXP_MOVE.test(dropzoneAccept);
+                                                dropzoneCopy = REGEXP_COPY.test(dropzoneAccept);
+                                                effectAllowed = (!dropzoneMove && !dropzoneCopy) || (dropzoneCopy && (dropEffect==='copy')) || (dropzoneMove && (dropEffect==='move'));
+                                                return !effectAllowed;
+                                            }
+                                            return !dropzone.insidePos((e3.clientX || e3.center.x)+window.getScrollLeft(), (e3.clientY || e3.center.y)+window.getScrollTop());
                                         }
-                                        return !dropzone.insidePos((e3.clientX || e3.center.x)+window.getScrollLeft(), (e3.clientY || e3.center.y)+window.getScrollTop());
-                                    }
-                                );
-                                dragOverPromise.finally(
-                                    function() {
-                                        dragOutEvent.detach();
-                                        e.dropTarget = null;
-                                    }
-                                );
-                                ddProps.dragOverList.push(dragOverPromise);
-console.info(NAME, 'Over dropzone: emitting dd-over event');
-                                Event.emit(dropzone, emitterName+':dd-over', e);
+                                    );
+                                    dragOverPromise.finally(
+                                        function() {
+                                            dragOutEvent.detach();
+                                            e.dropTarget = null;
+                                        }
+                                    );
+                                    ddProps.dragOverList.push(dragOverPromise);
+    console.info(NAME, 'Over dropzone: emitting dd-over event');
+                                    Event.emit(dropzone, emitterName+':dd-over', e);
+                                }
                             }
                         }
                     );
@@ -395,10 +403,10 @@ console.info(NAME, '_handleDrop '+dragNode);
 console.info(NAME, '_initializeDrag '+e.xMouseOrigin);
             var instance = this,
                 sourceNode = e.target,
-                dropzoneSpecified = sourceNode.hasAttr(DD_DROPZONE),
                 constrain = sourceNode.getAttr(CONSTRAIN_ATTR),
                 ddProps = instance.ddProps,
                 emitterName = e.emitterName,
+                dropzoneSpecified = sourceNode.hasAttr(DD_DROPZONE) || (emitterName!=='UI'),
                 moveEv, dragNode, x, y, byExactId, match, constrainNode, winConstrained, winScrollLeft, winScrollTop,
                 inlineLeft, inlineTop, xOrig, yOrig;
 
@@ -413,7 +421,6 @@ console.info(NAME, '_initializeDrag '+e.xMouseOrigin);
             ddProps.winConstrained = winConstrained = (constrain==='window');
             ddProps.xMouseLast = x;
             ddProps.yMouseLast = y;
-
             if (constrain) {
                 if (ddProps.winConstrained) {
                     ddProps.winScrollLeft = winScrollLeft = window.getScrollLeft();
@@ -694,7 +701,7 @@ console.info('allowCopy --> '+REGEXP_ALL.test(allowedEffects) || REGEXP_COPY.tes
          * @since 0.0.1
          */
         allowSwitch: function(dragableElement) {
-console.info('allowSwitch --> '+REGEXP_ALL.test(this._allowedEffects(dragableElement));
+console.info('allowSwitch --> '+REGEXP_ALL.test(this._allowedEffects(dragableElement)));
             return REGEXP_ALL.test(this._allowedEffects(dragableElement));
         },
 
@@ -702,13 +709,13 @@ console.info('allowSwitch --> '+REGEXP_ALL.test(this._allowedEffects(dragableEle
          * Returns the emitterName that the dropzone accepts.
          *
          * @method getDropzoneEmitter
-         * @param dropzone {HtmlElement} HtmlElement-dropzone that might hold the emitter-definition
+         * @param dropzone {String} dropzone attribute of the dropzone HtmlElement
          * @return {String|null} the emitterName that is accepted
          * @since 0.0.1
          */
         getDropzoneEmitter: function(dropzone) {
             var extract = dropzone.match(REGEXP_EMITTER);
-console.info('getDropzoneEmitter --> '+extract && extract[1]);
+console.info('getDropzoneEmitter --> '+(extract && extract[1]));
             return extract && extract[1];
         },
 
