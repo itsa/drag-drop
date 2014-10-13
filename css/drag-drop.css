@@ -1,13 +1,18 @@
-[draggable] {
+[dd-draggable] {
     -moz-user-select: none;
     -khtml-user-select: none;
     -webkit-user-select: none;
     user-select: none;
+    float: left;
+    position: relative;
 }
-.dd-dragging[draggable] {
+.dd-hidden-source[dd-draggable] {
+    visibility: hidden !important;
+}
+.dd-dragging[dd-draggable] {
     cursor: move;
 }
-.dd-transition[draggable] {
+.dd-transition[dd-draggable] {
     -webkit-transition: top 0.25s ease-out, left 0.25s ease-out;
     -moz-transition: top 0.25s ease-out, left 0.25s ease-out;
     -ms-transition: top 0.25s ease-out, left 0.25s ease-out;
@@ -20,4 +25,7 @@
 .dd-opacity {
     opacity: 0.6;
     filter: alpha(opacity=60); /* For IE8 and earlier */
+}
+[dropzone] {
+    position: relative; /* otherwise we cannot place absolute positioned items */
 }
