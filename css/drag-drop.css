@@ -6,13 +6,13 @@
     float: left;
     position: relative;
 }
-.dd-hidden-source[dd-draggable] {
+.dd-hidden-source {
     visibility: hidden !important;
 }
-.dd-dragging[dd-draggable] {
+.dd-dragging {
     cursor: move;
 }
-.dd-transition[dd-draggable] {
+.dd-transition {
     -webkit-transition: top 0.25s ease-out, left 0.25s ease-out;
     -moz-transition: top 0.25s ease-out, left 0.25s ease-out;
     -ms-transition: top 0.25s ease-out, left 0.25s ease-out;

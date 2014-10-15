@@ -18,18 +18,21 @@
 
 var NAME = '[dragdrop]: ',
     DRAG = 'drag',
+    DROP = 'drop',
     DRAGGABLE = DRAG+'gable',
+    DEL_DRAGGABLE = 'del-'+DRAGGABLE,
     DD_MINUS = 'dd-',
     DD_DRAGGING_CLASS = DD_MINUS+DRAG+'ging',
     DD_MASTER_CLASS = DD_MINUS+'master',
     DD_HANDLE = DD_MINUS+'handle',
-    DD_COPIED_NODE = DD_MINUS+'copied-node',
+    DD_DROPZONE_MOVABLE = DD_MINUS+'dropzone-movable',
     CONSTRAIN_ATTR = 'xy-constrain',
     PROXY = 'proxy',
     MOUSE = 'mouse',
     DATA_KEY = 'dragDrop',
     DD_EFFECT_ALLOWED = DD_EFFECT_ALLOWED,
     DROPZONE = 'dropzone',
+    DROPZONE_DROP = DROPZONE+'-'+DROP,
     DD_DROPZONE = DD_MINUS+DROPZONE,
     NO_TRANS_CLASS = 'el-notrans', // delivered by `dom-ext`
     DD_HIDDEN_SOURCE_CLASS = DD_MINUS+'hidden-source',
@@ -43,17 +46,16 @@ var NAME = '[dragdrop]: ',
     REGEXP_NODE_ID = /^#\S+$/,
     REGEXP_ALL = /\b(all|true)\b/i,
     REGEXP_COPY = /\bcopy\b/i,
-    EMITTER_NAME = 'emitter-name',
-    REGEXP_EMITTER = /\bemitter-name=(\w+)\b/,
-    DD_EMITTER_NAME = DD_MINUS+EMITTER_NAME,
+    EMITTERNAME = 'emittername',
+    REGEXP_EMITTER = /\bemittername=(\w+)\b/,
+    DD_EMITTERNAME = DD_MINUS+EMITTERNAME,
     PX = 'px',
     COPY = 'copy',
     MOVE = 'move',
     DD_DRAG = DD_MINUS+DRAG,
-    DD_OVER = DD_MINUS+'over',
-    DD_OUT = DD_MINUS+'out',
-    DD_DROP = DD_MINUS+'drop',
-    UI_DD_START = 'UI:dd-start',
+    DROPZONE_OUT = DROPZONE+'-out',
+    DD_DROP = DD_MINUS+DROP,
+    UI_DD_START = 'UI:dd',
     DD_FAKE = DD_MINUS+'fake-',
     DOWN = 'down',
     UP = 'up',
@@ -78,6 +80,8 @@ var NAME = '[dragdrop]: ',
     POSITION = 'position',
     ABSOLUTE = 'absolute',
     TRANS_END = 'transitionend',
+    TRUE = 'true',
+    DD_MINUSDRAGGABLE = DD_MINUS+DRAGGABLE,
     LATER = require('utils').later;
 
 require('polyfill/polyfill-base.js');
@@ -137,6 +141,14 @@ module.exports = function (window) {
             // If that is the case, the a mouseup-event should be initiated instead of draggin the element
             if (e.buttons===0) {
                 // no more button pressed
+                /**
+                * Fired when the mouse comes back into the browser-window while dd-drag was busy yet no buttons are pressed.
+                * This is a correction to the fact that the mouseup-event wasn't noticed because the mouse was outside the browser.
+                *
+                * @event dd-fake-mouseup
+                * @private
+                * @since 0.1
+                */
                 Event.emit(dragNode, DD_FAKE_MOUSEUP);
             }
             else {
@@ -170,8 +182,7 @@ module.exports = function (window) {
          * @param sourceNode {HtmlElement} the original HtmlElement
          * @param dragNode {HtmlElement} the dragged HtmlElement (either original or clone)
          * @param dropzoneSpecified {Boolean} whether the sourceNode had a dropzone specified
-         * @param x {Number} x-position in coordinaties relative to `document` (like getX())
-         * @param y {Number} y-position in coordinaties relative to `document` (like getX())
+         * @param relatives {Array} hash with all draggables that are being move togerther with the master draggable
          * @private
          * @since 0.0.1
          */
@@ -181,7 +192,7 @@ module.exports = function (window) {
                 ddProps = instance.ddProps,
                 willBeCopied,
                 removeClasses = function (node) {
-                    node.removeClass(NO_TRANS_CLASS).removeClass(HIGH_Z_CLASS).removeClass(DD_DRAGGING_CLASS);
+                    node.removeClass(NO_TRANS_CLASS).removeClass(HIGH_Z_CLASS).removeClass(DD_DRAGGING_CLASS).removeClass(DEL_DRAGGABLE);
                 };
 
             willBeCopied =  (e.dropTarget && ((ctrlPressed && instance.allowCopy(dragNode)) || instance.onlyCopy(dragNode)));
@@ -198,6 +209,13 @@ module.exports = function (window) {
                 instance._handleDrop(e, sourceNode, dragNode, relatives);
             }
             else {
+                [DD_MINUS+DROPZONE, CONSTRAIN_ATTR, DD_EMITTERNAME, DD_HANDLE, DD_EFFECT_ALLOWED].forEach(function(attribute) {
+                    var data = '_del_'+attribute;
+                    if (dragNode.getData(data)) {
+                        dragNode.removeAttr(attribute);
+                        dragNode.removeData(data);
+                    }
+                });
                 removeClasses(dragNode);
                 ddProps.relatives && ddProps.relatives.forEach(
                     function(item) {
@@ -205,11 +223,11 @@ module.exports = function (window) {
                     }
                 );
             }
-            instance.restoreDraggables = function() {/* NOOP */};
+            instance.restoreDraggables = function() {/* NOOP */ return this;};
         },
 
        /**
-         * Default function for the `*:dd-over`-event
+         * Default function for the `*:dropzone`-event
          *
          * @method _defFnOver
          * @param e {Object} eventobject
@@ -217,13 +235,25 @@ module.exports = function (window) {
          * @since 0.0.1
          */
         _defFnOver: function(e) {
-            console.log(NAME, '_defFnOver: default function dd-over');
+            console.log(NAME, '_defFnOver: default function dropzone');
             var dropzone = e.target;
             dropzone.setClass(DD_DROPACTIVE_CLASS);
-            e.over.then(
+            e.dropzone.then(
                 function(insideDropTarget) {
                     dropzone.removeClass(DD_DROPACTIVE_CLASS);
-                    insideDropTarget || e._noDDoutEvt || Event.emit(dropzone, e.emitterName+':'+DD_OUT, e);
+                    /**
+                    * Fired when the checkbox changes its value<br />
+                    * Listen for this event instead of 'checkedChange',
+                    * because this event is also fired when the checkbox changes its 'disabled'-state
+                    * (switching value null/boolean)
+                    *
+                    * @event valuechange
+                    * @param e {EventFacade} Event Facade including:
+                    * @param e.newVal {Boolean|null} New value of the checkbox; will be 'null' when is disabled.
+                    * @param e.prevVal {Boolean|null} Previous value of the checkbox; will be 'null' when was disabled.
+                    * @since 0.1
+                    */
+                    insideDropTarget || e._noDDoutEvt || Event.emit(dropzone, e.emitterName+':'+DROPZONE_OUT, e);
                 }
             );
         },
@@ -239,7 +269,7 @@ module.exports = function (window) {
         _defFnStart: function(e) {
             var instance = this,
                 customEvent;
-            e.emitterName = e.emitterName || e.target.getAttr(DD_EMITTER_NAME) || UI,
+            e.emitterName = e.emitterName || e.target.getAttr(DD_EMITTERNAME) || UI,
             customEvent = e.emitterName + ':'+DD_DRAG;
             console.log(NAME, '_defFnStart: default function UI:dd-start. Defining customEvent '+customEvent);
             Event.defineEvent(customEvent).defaultFn(instance._defFnDrag.bind(instance));
@@ -274,6 +304,9 @@ module.exports = function (window) {
          * @param dropzoneSpecified {Boolean} whether the sourceNode had a dropzone specified
          * @param x {Number} x-position in coordinaties relative to `document` (like getX())
          * @param y {Number} y-position in coordinaties relative to `document` (like getX())
+         * @param inlineLeft {String} inline css `left` for the original sourceNode
+         * @param inlineTop {String} inline css `top` for the original sourceNode
+         * @param relatives {Array} hash with all draggables that are being move togerther with the master draggable
          * @private
          * @since 0.0.1
          */
@@ -287,104 +320,111 @@ module.exports = function (window) {
         },
 
         /**
-         * Defines the definition of the `dd-over` event.
+         * Defines the definition of the `dropzone` event.
          * Also sets up listeners to tricker dd-over when the mouse is above an dropzone.
          *
          * @method _defineOverEv
          * @param e {Object} eventobject
+         * @param dropzones {NodeList} list with dropzonenodes
          * @private
          * @since 0.0.1
          */
-        _defineOverEv: function(e) {
+        _defineOverEv: function(e, dropzones) {
             console.log(NAME, '_defineOverEv');
             var instance = this,
                 emitterName = e.emitterName,
-                ddProps = instance.ddProps,
-                dropzones = window.document.getAll(DROPZONE_BRACKETS);
-            if (dropzones.length>0) {
-                Event.defineEvent(emitterName+':'+DD_OVER)
-                     .defaultFn(instance._defFnOver.bind(instance)); // no need to reassign
-                return Event.after([MOUSEMOVE, DD_FAKE_MOUSEMOVE], function(e2) {
-                    var overDropzone = false;
-                    ddProps.mouseOverNode = e.target;
-                    dropzones.forEach(
-                        function(dropzone) {
-                            // don't do double:
-                            if (dropzone === e.dropTarget) {
+                ddProps = instance.ddProps;
+            Event.defineEvent(emitterName+':'+DROPZONE)
+                 .defaultFn(instance._defFnOver.bind(instance)); // no need to reassign
+            return Event.after([MOUSEMOVE, DD_FAKE_MOUSEMOVE], function(e2) {
+                var overDropzone = false;
+                ddProps.mouseOverNode = e.target;
+                dropzones.forEach(
+                    function(dropzone) {
+                        // don't do double:
+                        if (dropzone === e.dropTarget) {
+                            overDropzone = true;
+                            return;
+                        }
+                        var dropzoneAccept = dropzone.getAttr(DROPZONE) || '',
+                            dropzoneMove = REGEXP_MOVE.test(dropzoneAccept),
+                            dropzoneCopy = REGEXP_COPY.test(dropzoneAccept),
+                            dragOverPromise, dragOutEvent, effectAllowed, emitterAllowed, dropzoneEmitter, xMouseLast, yMouseLast;
+
+                        if (e2.clientX) {
+                            ddProps.xMouseLast = e2.clientX + window.getScrollLeft();
+                            ddProps.yMouseLast = e2.clientY + window.getScrollTop();
+                        }
+
+                        // check if the mouse is inside the dropzone
+                        // also check if the mouse is inside the dragged node: the dragged node might have been constrained
+                        // and check if the dragged node is effectAllowed to go into the dropzone
+                        xMouseLast = ddProps.xMouseLast;
+                        yMouseLast = ddProps.yMouseLast;
+
+                        if (dropzone.insidePos(xMouseLast, yMouseLast) && ddProps.dragNode.insidePos(xMouseLast, yMouseLast)) {
+                            effectAllowed = (!dropzoneMove && !dropzoneCopy) || (dropzoneCopy && (dropEffect===COPY)) || (dropzoneMove && (dropEffect===MOVE));
+                            dropzoneEmitter = instance.getDropzoneEmitter(dropzoneAccept);
+                            emitterAllowed = !dropzoneEmitter || (dropzoneEmitter===emitterName);
+                            if (effectAllowed && emitterAllowed) {
                                 overDropzone = true;
-                                return;
-                            }
-                            var dropzoneAccept = dropzone.getAttr(DROPZONE) || '',
-                                dropzoneMove = REGEXP_MOVE.test(dropzoneAccept),
-                                dropzoneCopy = REGEXP_COPY.test(dropzoneAccept),
-                                dragOverPromise, dragOutEvent, effectAllowed, emitterAllowed, dropzoneEmitter, xMouseLast, yMouseLast;
-
-                            if (e2.clientX) {
-                                ddProps.xMouseLast = e2.clientX + window.getScrollLeft();
-                                ddProps.yMouseLast = e2.clientY + window.getScrollTop();
-                            }
-
-                            // check if the mouse is inside the dropzone
-                            // also check if the mouse is inside the dragged node: the dragged node might have been constrained
-                            // and check if the dragged node is effectAllowed to go into the dropzone
-                            xMouseLast = ddProps.xMouseLast;
-                            yMouseLast = ddProps.yMouseLast;
-
-                            if (dropzone.insidePos(xMouseLast, yMouseLast) && ddProps.dragNode.insidePos(xMouseLast, yMouseLast)) {
-                                effectAllowed = (!dropzoneMove && !dropzoneCopy) || (dropzoneCopy && (dropEffect===COPY)) || (dropzoneMove && (dropEffect===MOVE));
-                                dropzoneEmitter = instance.getDropzoneEmitter(dropzoneAccept);
-                                emitterAllowed = !dropzoneEmitter || (dropzoneEmitter===emitterName);
-                                if (effectAllowed && emitterAllowed) {
-                                    overDropzone = true;
-                                    e.dropTarget = dropzone;
-                                    // mouse is in area of dropzone
-                                    dragOverPromise = Promise.manage();
-                                    e.over = dragOverPromise;
-                                    dragOutEvent = Event.after(
-                                        [MOUSEMOVE, DD_FAKE_MOUSEMOVE],
-                                        function(e3) {
-                                            dragOverPromise.fulfill(false);
-                                        },
-                                        function(e3) {
-                                            var effectAllowed, dropzoneAccept, dropzoneMove, dropzoneCopy;
-                                            if (e3.type===DD_FAKE_MOUSEMOVE) {
-                                                dropzoneAccept = dropzone.getAttr(DROPZONE) || '';
-                                                dropzoneMove = REGEXP_MOVE.test(dropzoneAccept);
-                                                dropzoneCopy = REGEXP_COPY.test(dropzoneAccept);
-                                                effectAllowed = (!dropzoneMove && !dropzoneCopy) || (dropzoneCopy && (dropEffect===COPY)) || (dropzoneMove && (dropEffect===MOVE));
-                                                return !effectAllowed;
-                                            }
-                                            return !dropzone.insidePos((e3.clientX || e3.center.x)+window.getScrollLeft(), (e3.clientY || e3.center.y)+window.getScrollTop());
+                                e.dropTarget = dropzone;
+                                // mouse is in area of dropzone
+                                dragOverPromise = Promise.manage();
+                                e.dropzone = dragOverPromise;
+                                dragOutEvent = Event.after(
+                                    [MOUSEMOVE, DD_FAKE_MOUSEMOVE],
+                                    function(e3) {
+                                        dragOverPromise.fulfill(false);
+                                    },
+                                    function(e3) {
+                                        var effectAllowed, dropzoneAccept, dropzoneMove, dropzoneCopy;
+                                        if (e3.type===DD_FAKE_MOUSEMOVE) {
+                                            dropzoneAccept = dropzone.getAttr(DROPZONE) || '';
+                                            dropzoneMove = REGEXP_MOVE.test(dropzoneAccept);
+                                            dropzoneCopy = REGEXP_COPY.test(dropzoneAccept);
+                                            effectAllowed = (!dropzoneMove && !dropzoneCopy) || (dropzoneCopy && (dropEffect===COPY)) || (dropzoneMove && (dropEffect===MOVE));
+                                            return !effectAllowed;
                                         }
-                                    );
-                                    dragOverPromise.finally(
-                                        function(insideDropzone) {
-                                            dragOutEvent.detach();
-console.info('insideDropzone '+insideDropzone);
-                                            insideDropzone || (e.dropTarget=null);
-                                        }
-                                    );
-                                    ddProps.dragOverList.push(dragOverPromise);
-                                    Event.emit(dropzone, emitterName+':'+DD_OVER, e);
-                                }
+                                        return !dropzone.insidePos((e3.clientX || e3.center.x)+window.getScrollLeft(), (e3.clientY || e3.center.y)+window.getScrollTop());
+                                    }
+                                );
+                                dragOverPromise.finally(
+                                    function(insideDropzone) {
+                                        dragOutEvent.detach();
+                                        insideDropzone || (e.dropTarget=null);
+                                    }
+                                );
+                                ddProps.dragOverList.push(dragOverPromise);
+                                /**
+                                * Fired when the checkbox changes its value<br />
+                                * Listen for this event instead of 'checkedChange',
+                                * because this event is also fired when the checkbox changes its 'disabled'-state
+                                * (switching value null/boolean)
+                                *
+                                * @event valuechange
+                                * @param e {EventFacade} Event Facade including:
+                                * @param e.newVal {Boolean|null} New value of the checkbox; will be 'null' when is disabled.
+                                * @param e.prevVal {Boolean|null} Previous value of the checkbox; will be 'null' when was disabled.
+                                * @since 0.1
+                                */
+                                Event.emit(dropzone, emitterName+':'+DROPZONE, e);
                             }
                         }
-                    );
-                    overDropzone || (e.dropTarget=null);
-                });
-            }
+                    }
+                );
+                overDropzone || (e.dropTarget=null);
+            });
         },
 
       /**
         * Sets the draggable node back to its original position
         *
-        * @method _setBack
+        * @method _handleDrop
         * @param e {Object} eventobject
         * @param sourceNode {HtmlElement} the original HtmlElement
         * @param dragNode {HtmlElement} the dragged HtmlElement (either original or clone)
-        * @param dropzoneSpecified {Boolean} whether the sourceNode had a dropzone specified
-        * @param x {Number} x-position in coordinaties relative to `document` (like getX())
-        * @param y {Number} y-position in coordinaties relative to `document` (like getX())
+        * @param relatives {Array} hash with all draggables that are being move togerther with the master draggable
         * @private
         * @since 0.0.1
         */
@@ -392,20 +432,63 @@ console.info('insideDropzone '+insideDropzone);
             console.log(NAME, '_handleDrop '+dragNode);
             var instance = this,
                 dropzoneNode = e.dropTarget,
-                constrainRectangle, borderLeft, borderTop, dragNodeX, dragNodeY, match, copyToDropzone, moveToDropzone, moveInsideDropzone;
+                delegatedDragging = sourceNode.hasClass(DEL_DRAGGABLE),
+                constrainRectangle, borderLeft, borderTop, dragNodeX, dragNodeY, match, copyToDropzone, moveToDropzone,
+                moveInsideDropzone, isCopied, dropzoneDelegatedDraggable, dropzoneIsDelegated;
             if (dropzoneNode) {
-                copyToDropzone = function(nodeDrag, shiftX, shiftY) {
+                dropzoneDelegatedDraggable = dropzoneNode.getAttr(DD_MINUSDRAGGABLE);
+                dropzoneIsDelegated = dropzoneDelegatedDraggable && (dropzoneNode.getAttr(DD_MINUSDRAGGABLE)!=='true');
+                copyToDropzone = function(nodeSource, nodeDrag, shiftX, shiftY) {
+                    if (delegatedDragging) {
+                        dropzoneIsDelegated || nodeDrag.setAttr(DD_MINUSDRAGGABLE, TRUE);
+                        nodeDrag.removeClass(DEL_DRAGGABLE);
+                    }
+                    [DD_MINUS+DROPZONE, CONSTRAIN_ATTR, DD_EMITTERNAME, DD_HANDLE, DD_EFFECT_ALLOWED].forEach(function(attribute) {
+                        var data = '_del_'+attribute,
+                            attr = sourceNode.getData(data);
+                        if (attr) {
+                            if (dropzoneIsDelegated) {
+                                nodeDrag.removeAttr(attribute);
+                            }
+                            else {
+                                nodeDrag.setAttr(attribute, attr);
+                            }
+                            nodeSource.removeAttr(attribute);
+                            nodeSource.removeData(data);
+                            nodeDrag.removeData(data);
+                        }
+                    });
                     dropzoneNode.append(nodeDrag);
-                    nodeDrag.removeClass(DD_OPACITY_CLASS).removeClass(DD_TRANSITION_CLASS).removeClass(HIGH_Z_CLASS).removeClass(DD_DRAGGING_CLASS);
+                    nodeDrag.removeClass(DD_OPACITY_CLASS).removeClass(DD_TRANSITION_CLASS).removeClass(HIGH_Z_CLASS).removeClass(DD_DRAGGING_CLASS).removeClass(NO_TRANS_CLASS);
                     nodeDrag.setXY(dragNodeX+shiftX, dragNodeY+shiftY, constrainRectangle);
                     // make the new HtmlElement non-copyable: it only can be replaced inside its dropzone
-                    nodeDrag.setAttr(DD_EFFECT_ALLOWED, MOVE)
-                            .setAttr(DD_COPIED_NODE, 'true'); // to make moving inside the dropzone possible without return to its startposition
+                    dropzoneIsDelegated || nodeDrag.setAttr(DD_EFFECT_ALLOWED, MOVE);
+                    nodeDrag.setAttr(DD_DROPZONE_MOVABLE, TRUE); // to make moving inside the dropzone possible without return to its startposition
                 };
                 moveToDropzone = function(nodeSource, nodeDrag, shiftX, shiftY) {
                     nodeSource.setInlineStyle(POSITION, ABSOLUTE);
+                    if (delegatedDragging) {
+                        dropzoneIsDelegated || nodeSource.setAttr(DD_MINUSDRAGGABLE, TRUE);
+                        nodeSource.removeClass(DEL_DRAGGABLE);
+                    }
+                    [DD_MINUS+DROPZONE, CONSTRAIN_ATTR, DD_EMITTERNAME, DD_HANDLE, DD_EFFECT_ALLOWED].forEach(function(attribute) {
+                        var data = '_del_'+attribute,
+                            attr = sourceNode.getData(data);
+                        if (attr) {
+                            if (dropzoneIsDelegated) {
+                                nodeSource.removeAttr(attribute);
+                            }
+                            else {
+                                nodeSource.setAttr(attribute, attr);
+                            }
+                            nodeSource.removeData(data);
+                        }
+                    });
                     dropzoneNode.append(nodeSource);
                     nodeSource.setXY(dragNodeX+shiftX, dragNodeY+shiftY, constrainRectangle);
+                    // make the new HtmlElement non-copyable: it only can be replaced inside its dropzone
+                    dropzoneIsDelegated || nodeSource.setAttr(DD_EFFECT_ALLOWED, MOVE);
+                    nodeSource.setAttr(DD_DROPZONE_MOVABLE, TRUE); // to make moving inside the dropzone possible without return to its startposition
                     nodeSource.removeClass(DD_HIDDEN_SOURCE_CLASS);
                     nodeDrag.remove();
                 };
@@ -420,47 +503,78 @@ console.info('insideDropzone '+insideDropzone);
                     w: dropzoneNode.offsetWidth - borderLeft - parseInt(dropzoneNode.getStyle(BORDER_RIGHT_WIDTH), 10),
                     h: dropzoneNode.offsetHeight - borderTop - parseInt(dropzoneNode.getStyle(BORDER_BOTTOM_WIDTH), 10)
                 };
-                if ((ctrlPressed && instance.allowCopy(dragNode)) || instance.onlyCopy(dragNode)) {
+                isCopied = (ctrlPressed && instance.allowCopy(dragNode)) || instance.onlyCopy(dragNode);
+                if (isCopied) {
                     // backup x,y before move it into dropzone (which leads to new x,y)
                     dragNodeX = dragNode.getX();
                     dragNodeY = dragNode.getY();
                     // now move the dragNode into dropzone
-                    copyToDropzone(dragNode, 0 ,0);
                     relatives && relatives.forEach(
                         function(item) {
-                            copyToDropzone(item.dragNode, item.shiftX, item.shiftY);
+                            (dragNode!==item.dragNode) && copyToDropzone(item.sourceNode, item.dragNode, item.shiftX, item.shiftY);
                         }
                     );
+                    copyToDropzone(sourceNode, dragNode, 0 ,0);
                 }
                 else {
                     dragNodeX = dragNode.getX();
                     dragNodeY = dragNode.getY();
-                    moveToDropzone(sourceNode, dragNode, 0, 0);
                     relatives && relatives.forEach(
                         function(item) {
-                            moveToDropzone(item.sourceNode, item.dragNode, item.shiftX, item.shiftY);
+                           (dragNode!==item.dragNode) && moveToDropzone(item.sourceNode, item.dragNode, item.shiftX, item.shiftY);
                         }
                     );
+                    moveToDropzone(sourceNode, dragNode, 0, 0);
                 }
-                Event.emit(e.copyTarget, e.emitterName+':'+DD_MINUS+DROPZONE, e);
+
+                sourceNode.removeClass(DEL_DRAGGABLE);
+                /**
+                * Fired when the checkbox changes its value<br />
+                * Listen for this event instead of 'checkedChange',
+                * because this event is also fired when the checkbox changes its 'disabled'-state
+                * (switching value null/boolean)
+                *
+                * @event valuechange
+                * @param e {EventFacade} Event Facade including:
+                * @param e.newVal {Boolean|null} New value of the checkbox; will be 'null' when is disabled.
+                * @param e.prevVal {Boolean|null} Previous value of the checkbox; will be 'null' when was disabled.
+                * @since 0.1
+                */
+                Event.emit(e.copyTarget, e.emitterName+':'+DROPZONE_DROP, e);
             }
             else {
-                if (dragNode.hasAttr(DD_COPIED_NODE)) {
-                    moveInsideDropzone = function(hasMatch, nodeDrag, shiftX, shiftY) {
-                        hasMatch && nodeDrag.setXY(dragNodeX+shiftX, dragNodeY+shiftY, constrainRectangle);
-                        nodeDrag.removeClass(DD_OPACITY_CLASS).removeClass(DD_TRANSITION_CLASS).removeClass(HIGH_Z_CLASS).removeClass(DD_DRAGGING_CLASS);
+                if (dragNode.hasAttr(DD_DROPZONE_MOVABLE)) {
+                    moveInsideDropzone = function(hasMatch, nodeSource, nodeDrag, shiftX, shiftY) {
+                        hasMatch && nodeSource.setXY(nodeSource+shiftX, nodeSource+shiftY, constrainRectangle);
+
+                        // nodeDrag.removeClass(DD_OPACITY_CLASS).removeClass(DD_TRANSITION_CLASS).removeClass(HIGH_Z_CLASS).removeClass(DD_DRAGGING_CLASS);
+
+                        if (delegatedDragging) {
+                            nodeSource.removeClass(DEL_DRAGGABLE);
+                        }
+                        [DD_MINUS+DROPZONE, CONSTRAIN_ATTR, DD_EMITTERNAME, DD_HANDLE, DD_EFFECT_ALLOWED].forEach(function(attribute) {
+                            var data = '_del_'+attribute,
+                                attr = dragNode.getData(data);
+                            if (attr) {
+                                if (dropzoneIsDelegated) {
+                                    nodeSource.removeAttr(attribute);
+                                }
+                                else {
+                                    nodeSource.setAttr(attribute, attr);
+                                }
+                                nodeSource.removeData(data);
+                            }
+                        });
+                        nodeSource.removeClass(DD_HIDDEN_SOURCE_CLASS);
+                        nodeDrag.remove();
                     };
                     // reset its position, only now constrain it to the dropzondenode
                     // we need to specify exactly the droparea: because we don't want to compare to any
                     // scrollWidth/scrollHeight, but exaclty to the visible part of the dropzone
-                    match = false;
-                    dropzoneNode = dragNode.parentNode;
-                    while (dropzoneNode.matchesSelector && !match) {
-                        match = dropzoneNode.matchesSelector(DROPZONE_BRACKETS);
-                        // if there is a match, then make sure x and y fall within the region
-                        match || (dropzoneNode=dropzoneNode.parentNode);
-                    }
-                    if (match) {
+                    dropzoneNode = dragNode.inside(DROPZONE_BRACKETS);
+                    if (dropzoneNode) {
+                        dropzoneDelegatedDraggable = dropzoneNode.getAttr(DD_MINUSDRAGGABLE);
+                        dropzoneIsDelegated = dropzoneDelegatedDraggable && (dropzoneNode.getAttr(DD_MINUSDRAGGABLE)!=='true');
                         borderLeft = parseInt(dropzoneNode.getStyle(BORDER_LEFT_WIDTH), 10);
                         borderTop = parseInt(dropzoneNode.getStyle(BORDER_TOP_WIDTH), 10);
                         constrainRectangle = {
@@ -472,12 +586,15 @@ console.info('insideDropzone '+insideDropzone);
                         dragNodeX = dragNode.getX();
                         dragNodeY = dragNode.getY();
                     }
-                    moveInsideDropzone(match, dragNode, 0, 0);
                     relatives && relatives.forEach(
                         function(item) {
-                            moveInsideDropzone(match, item.dragNode, item.shiftX, item.shiftY);
+                            (sourceNode!==item.sourceNode) && moveInsideDropzone(dropzoneNode, item.sourceNode, item.dragNode, item.shiftX, item.shiftY);
                         }
                     );
+                    moveInsideDropzone(dropzoneNode, sourceNode, dragNode, 0, 0);
+
+
+
                 }
                 else {
                     instance.restoreDraggables();
@@ -487,19 +604,6 @@ console.info('insideDropzone '+insideDropzone);
             dragNode.removeClass(DD_MASTER_CLASS);
         },
 
-restoreDraggables: function() {/* NOOP */},
-
-_restoreDraggables: function(e, sourceNode, dragNode, dropzoneSpecified, x, y, inlineLeft, inlineTop, relatives) {
-    console.log('_restoreDraggables');
-    var instance = this;
-    instance.restoreDraggables = function() {/* NOOP */};
-    instance._setBack(e, sourceNode, dragNode, dropzoneSpecified, x, y, inlineLeft, inlineTop, true);
-    relatives && relatives.forEach(
-        function(item) {
-            instance._setBack(e, item.sourceNode, item.dragNode, dropzoneSpecified, x+item.shiftX, y+item.shiftY, item.inlineLeft, item.inlineTop);
-        }
-    );
-},
        /**
          * Default function for the `*:dd-drag`-event
          *
@@ -517,7 +621,7 @@ _restoreDraggables: function(e, sourceNode, dragNode, dropzoneSpecified, x, y, i
                 emitterName = e.emitterName,
                 dropzoneSpecified = sourceNode.hasAttr(DD_DROPZONE) || (emitterName!==UI),
                 moveEv, dragNode, x, y, byExactId, match, constrainNode, winConstrained, winScrollLeft, winScrollTop,
-                inlineLeft, inlineTop, xOrig, yOrig, setupDragnode;
+                inlineLeft, inlineTop, xOrig, yOrig, setupDragnode, dropzones;
 
             setupDragnode = function(nodeSource, nodeDrag, shiftX, shiftY) {
                 (dropEffect===COPY) ? nodeDrag.setClass(DD_OPACITY_CLASS) : nodeSource.setClass(DD_HIDDEN_SOURCE_CLASS);
@@ -589,6 +693,18 @@ _restoreDraggables: function(e, sourceNode, dragNode, dropzoneSpecified, x, y, i
                 // move the object
                 e.xMouse = e2.clientX;
                 e.yMouse = e2.clientY;
+                /**
+                * Fired when the checkbox changes its value<br />
+                * Listen for this event instead of 'checkedChange',
+                * because this event is also fired when the checkbox changes its 'disabled'-state
+                * (switching value null/boolean)
+                *
+                * @event valuechange
+                * @param e {EventFacade} Event Facade including:
+                * @param e.newVal {Boolean|null} New value of the checkbox; will be 'null' when is disabled.
+                * @param e.prevVal {Boolean|null} Previous value of the checkbox; will be 'null' when was disabled.
+                * @since 0.1
+                */
                 Event.emit(sourceNode, emitterName+':'+DD_DRAG, e);
                 e.dd.callback();
             });
@@ -602,6 +718,18 @@ _restoreDraggables: function(e, sourceNode, dragNode, dropzoneSpecified, x, y, i
                 moveEv.detach();
                 instance._teardownOverEvent(e, e3.clientX, e3.clientY);
                 instance.ddProps = {};
+                /**
+                * Fired when the checkbox changes its value<br />
+                * Listen for this event instead of 'checkedChange',
+                * because this event is also fired when the checkbox changes its 'disabled'-state
+                * (switching value null/boolean)
+                *
+                * @event valuechange
+                * @param e {EventFacade} Event Facade including:
+                * @param e.newVal {Boolean|null} New value of the checkbox; will be 'null' when is disabled.
+                * @param e.prevVal {Boolean|null} Previous value of the checkbox; will be 'null' when was disabled.
+                * @since 0.1
+                */
                 Event.emit(sourceNode, emitterName+':'+DD_DROP, e);
                 e.dd.fulfill();
             });
@@ -647,11 +775,16 @@ _restoreDraggables: function(e, sourceNode, dragNode, dropzoneSpecified, x, y, i
                 );
             }
 
-            // create a custom over-event that fires exactly when the mouse is over any dropzone
-            // we cannot use `hover`, because that event fails when there is an absolute floated element outsize `dropzone`
-            // lying on top of the dropzone. -> we need to check by coördinates
-            instance.ddProps.dragOverEv = instance._defineOverEv(e);
+            if (sourceNode.getAttr(DD_DROPZONE)) {
+                dropzones = window.document.getAll(DROPZONE_BRACKETS);
+                if (dropzones.length>0) {
+                    // create a custom over-event that fires exactly when the mouse is over any dropzone
+                    // we cannot use `hover`, because that event fails when there is an absolute floated element outsize `dropzone`
+                    // lying on top of the dropzone. -> we need to check by coördinates
+                    instance.ddProps.dragOverEv = instance._defineOverEv(e, dropzones);
 
+                }
+            }
             instance.ddProps.dragDropEv = instance._defineDropEv(e, emitterName, sourceNode, dragNode, dropzoneSpecified, x, y, inlineLeft, inlineTop, ddProps.relatives);
         },
 
@@ -668,6 +801,36 @@ _restoreDraggables: function(e, sourceNode, dragNode, dropzoneSpecified, x, y, i
             e.dd.reject();
         },
 
+       /**
+         * Sets the draggable items back to their original place. Should only be used when you prevent the default-function of `dd-drop`,
+         * so you can choose to do set the draggables back conditionally.
+         *
+         * @method _restoreDraggables
+         * @param e {Object} eventobject
+         * @param sourceNode {HtmlElement} the original HtmlElement
+         * @param dragNode {HtmlElement} the dragged HtmlElement (either original or clone)
+         * @param dropzoneSpecified {Boolean} whether the sourceNode had a dropzone specified
+         * @param x {Number} x-position in coordinaties relative to `document` (like getX())
+         * @param y {Number} y-position in coordinaties relative to `document` (like getX())
+         * @param inlineLeft {String} inline css `left` for the original sourceNode
+         * @param inlineTop {String} inline css `top` for the original sourceNode
+         * @param relatives {Array} hash with all draggables that are being move togerther with the master draggable
+         * @private
+         * @since 0.0.1
+         */
+        _restoreDraggables: function(e, sourceNode, dragNode, dropzoneSpecified, x, y, inlineLeft, inlineTop, relatives) {
+            console.log('_restoreDraggables');
+            var instance = this;
+            instance.restoreDraggables = function() {/* NOOP */ return this;};
+            instance._setBack(e, sourceNode, dragNode, dropzoneSpecified, x, y, inlineLeft, inlineTop, e.dropzone);
+            relatives && relatives.forEach(
+                function(item) {
+                    (dragNode!==item.dragNode) && instance._setBack(e, item.sourceNode, item.dragNode, dropzoneSpecified, x+item.shiftX, y+item.shiftY, item.inlineLeft, item.inlineTop);
+                }
+            );
+            return instance;
+        },
+
       /**
         * Sets the draggable node back to its original position
         *
@@ -677,10 +840,13 @@ _restoreDraggables: function(e, sourceNode, dragNode, dropzoneSpecified, x, y, i
         * @param dropzoneSpecified {Boolean} whether the sourceNode had a dropzone specified
         * @param x {Number} x-position in coordinaties relative to `document` (like getX())
         * @param y {Number} y-position in coordinaties relative to `document` (like getX())
+        * @param inlineLeft {String} inline css `left` for the original sourceNode
+        * @param inlineTop {String} inline css `top` for the original sourceNode
+        * @param [emitDropzoneEvent] {Boolean} whether dropzone-event should be emitted
         * @private
         * @since 0.0.1
         */
-        _setBack: function(e, sourceNode, dragNode, dropzoneSpecified, x, y, inlineLeft, inlineTop, emitDDout) {
+        _setBack: function(e, sourceNode, dragNode, dropzoneSpecified, x, y, inlineLeft, inlineTop, emitDropzoneEvent) {
             console.log(NAME, '_setBack to '+x+', '+y);
             var tearedDown,
                 winScrollTop,
@@ -693,14 +859,21 @@ _restoreDraggables: function(e, sourceNode, dragNode, dropzoneSpecified, x, y, i
                         tearedDown = true;
                         notransRemoval || (dragNode.removeEventListener && dragNode.removeEventListener(TRANS_END, tearDown, true));
                         if (dropzoneSpecified) {
-                            sourceNode.removeClass(DD_HIDDEN_SOURCE_CLASS);
+                            sourceNode.removeClass(DD_HIDDEN_SOURCE_CLASS).removeClass(DEL_DRAGGABLE);
                             dragNode.remove();
                         }
                         else {
-                            dragNode.removeClass(DD_TRANSITION_CLASS).removeClass(HIGH_Z_CLASS).removeClass(DD_DRAGGING_CLASS);
+                            dragNode.removeClass(DD_TRANSITION_CLASS).removeClass(HIGH_Z_CLASS).removeClass(DD_DRAGGING_CLASS).removeClass(DEL_DRAGGABLE);
                             dragNode.setInlineStyle(LEFT, inlineLeft);
                             dragNode.setInlineStyle(TOP, inlineTop);
                         }
+                        [DD_MINUS+DROPZONE, CONSTRAIN_ATTR, DD_EMITTERNAME, DD_HANDLE, DD_EFFECT_ALLOWED].forEach(function(attribute) {
+                            var data = '_del_'+attribute;
+                            if (sourceNode.getData(data)) {
+                                sourceNode.removeAttr(attribute);
+                                sourceNode.removeData(data);
+                            }
+                        });
                     }
                 };
             dragNode.removeClass(NO_TRANS_CLASS);
@@ -716,8 +889,8 @@ _restoreDraggables: function(e, sourceNode, dragNode, dropzoneSpecified, x, y, i
             // ALWAYS tearDowm after delay --> when there was no repositioning, there never will be a transition-event
             LATER(tearDown, 260);
             dragNode.setXY(x, y);
-            // now we might need to fire a last `dd-over` event when the dragged element returns to a dropzone when it wasn't before set it back
-            if (emitDDout) {
+            // now we might need to fire a last `dropzone` event when the dragged element returns to a dropzone when it wasn't before set it back
+            if (emitDropzoneEvent) {
                 dropzones = window.document.getAll(DROPZONE_BRACKETS);
                 if (dropzones) {
                     winScrollTop = window.getScrollTop();
@@ -727,7 +900,7 @@ _restoreDraggables: function(e, sourceNode, dragNode, dropzoneSpecified, x, y, i
                             if (dropzone.insidePos(x, y) && !dropzone.insidePos(e.xMouse+winScrollLeft, e.yMouse+winScrollTop)) {
                                 e.dropTarget = dropzone;
                                 e._noDDoutEvt = true;
-                                Event.emit(dropzone, e.emitterName+':'+DD_OVER, e);
+                                Event.emit(dropzone, e.emitterName+':'+DROPZONE, e);
                             }
                         }
                     );
@@ -775,6 +948,19 @@ _restoreDraggables: function(e, sourceNode, dragNode, dropzoneSpecified, x, y, i
                     // now, it could be that any droptarget should change its appearance (DD_DROPACTIVE_CLASS).
                     // we need to recalculate it for all targets
                     // we do this by emitting a DD_FAKE_MOUSEMOVE event
+                    /**
+                    * Fired when the checkbox changes its value<br />
+                    * Listen for this event instead of 'checkedChange',
+                    * because this event is also fired when the checkbox changes its 'disabled'-state
+                    * (switching value null/boolean)
+                    *
+                    * @event valuechange
+                    * @param e {EventFacade} Event Facade including:
+                    * @param e.newVal {Boolean|null} New value of the checkbox; will be 'null' when is disabled.
+                    * @param e.prevVal {Boolean|null} Previous value of the checkbox; will be 'null' when was disabled.
+                    * @private
+                    * @since 0.1
+                    */
                     mouseOverNode && Event.emit(mouseOverNode, UI+':'+DD_FAKE_MOUSEMOVE);
                 }
             });
@@ -792,9 +978,12 @@ _restoreDraggables: function(e, sourceNode, dragNode, dropzoneSpecified, x, y, i
         * @since 0.0.1
         */
         _setupMouseEv: function() {
-            var instance = this;
             console.log(NAME, '_setupMouseEv: setting up mousedown event');
-            Event.after(MOUSEDOWN, function(e) {
+            var instance = this,
+                nodeTargetFn,
+                delegatedTargetFn;
+
+            nodeTargetFn = function(e) {
                 var node = e.target,
                     handle, availableHandles, insideHandle;
 
@@ -829,9 +1018,54 @@ _restoreDraggables: function(e, sourceNode, dragNode, dropzoneSpecified, x, y, i
                 // store the orriginal mouseposition:
                 e.xMouseOrigin = e.clientX + window.getScrollLeft();
                 e.yMouseOrigin = e.clientY + window.getScrollTop();
-                // now we can start the eventcycle by emitting UI:dd-start:
+                // now we can start the eventcycle by emitting UI:dd:
+                /**
+                * Fired when the checkbox changes its value<br />
+                * Listen for this event instead of 'checkedChange',
+                * because this event is also fired when the checkbox changes its 'disabled'-state
+                * (switching value null/boolean)
+                *
+                * @event valuechange
+                * @param e {EventFacade} Event Facade including:
+                * @param e.newVal {Boolean|null} New value of the checkbox; will be 'null' when is disabled.
+                * @param e.prevVal {Boolean|null} Previous value of the checkbox; will be 'null' when was disabled.
+                * @since 0.1
+                */
                 Event.emit(e.target, UI_DD_START, e);
-            }, '['+DD_MINUS+DRAGGABLE+'="true"]');
+            };
+
+            delegatedTargetFn = function(e, cssSelector) {
+                var container = e.target,
+                    nodelist = container.getAll(cssSelector),
+                    foundNode;
+                nodelist.some(
+                    function(node) {
+                        (node.contains(e.sourceTarget)) && (foundNode=node);
+                        return foundNode;
+                    }
+                );
+                if (foundNode) {
+                    e.currentTarget = container;
+                    e.target = foundNode;
+                    // Mark the delegated node, so it has the same style as [draggable]:
+                    foundNode.setClass(DEL_DRAGGABLE);
+                    // We must transport the other relevant dd-attributes (and xy-constrain)
+                    // which we will remove when finished dragging:
+                    [DD_MINUS+DROPZONE, CONSTRAIN_ATTR, DD_EMITTERNAME, DD_HANDLE, DD_EFFECT_ALLOWED].forEach(function(attribute) {
+                        var attr = container.getAttr(attribute);
+                        if (attr && !foundNode.hasAttr(attribute)) {
+                            foundNode.setData('_del_'+attribute, attr);
+                            foundNode.setAttr(attribute, attr);
+                        }
+                    });
+                    nodeTargetFn(e);
+                }
+            };
+
+            Event.after(MOUSEDOWN, function(e) {
+                var draggableAttr = e.target.getAttr(DD_MINUSDRAGGABLE);
+                (draggableAttr===TRUE) ? nodeTargetFn(e) : delegatedTargetFn(e, draggableAttr);
+            }, '['+DD_MINUSDRAGGABLE+']');
 
         },
 
@@ -933,16 +1167,28 @@ _restoreDraggables: function(e, sourceNode, dragNode, dropzoneSpecified, x, y, i
         onlyCopy: function(dragableElement) {
             console.log('onlyCopy --> '+REGEXP_COPY.test(this._allowedEffects(dragableElement)));
             return REGEXP_COPY.test(this._allowedEffects(dragableElement));
-        }
+        },
+
+       /**
+         * Sets the draggable items back to their original place. Should only be used when you prevent the default-function of `dd-drop`,
+         * so you can choose to do set the draggables back conditionally.
+         *
+         * @method restoreDraggables
+         * @private
+         * @chainable
+         * @since 0.0.1
+         */
+        restoreDraggables: function() {/* NOOP */ return this;}
+
     };
 
     NodeDD = NodePlugin.subClass(
         function (config) {
             config || (config={});
-            this[DD_MINUS+DRAGGABLE] = true;
+            this[DD_MINUSDRAGGABLE] = true;
             this[DD_MINUS+DROPZONE] = config.dropzone;
             this[CONSTRAIN_ATTR] = config.constrain;
-            this[DD_EMITTER_NAME] = config.emitterName;
+            this[DD_EMITTERNAME] = config.emitterName;
             this[DD_HANDLE] = config.handle;
             this[DD_EFFECT_ALLOWED] = config.effectAllowed;
         }
@@ -950,7 +1196,7 @@ _restoreDraggables: function(e, sourceNode, dragNode, dropzoneSpecified, x, y, i
 
     NodeDropzone = NodePlugin.subClass(
         function (config) {
-            var dropzone = 'true',
+            var dropzone = TRUE,
                 emitterName;
             config || (config={});
             if (config.copy && !config.move) {
@@ -959,7 +1205,7 @@ _restoreDraggables: function(e, sourceNode, dragNode, dropzoneSpecified, x, y, i
             else if (!config.copy && config.move) {
                 dropzone = MOVE;
             }
-            (emitterName=config.emitterName) && (dropzone+=' '+EMITTER_NAME+'='+emitterName);
+            (emitterName=config.emitterName) && (dropzone+=' '+EMITTERNAME+'='+emitterName);
             this.dropzone = dropzone;
         }
     );
