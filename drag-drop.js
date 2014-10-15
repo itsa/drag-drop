@@ -543,7 +543,8 @@ module.exports = function (window) {
                 Event.emit(e.copyTarget, e.emitterName+':'+DROPZONE_DROP, e);
             }
             else {
-                if (dragNode.hasAttr(DD_DROPZONE_MOVABLE)) {
+                (dragNode.hasAttr(DD_DROPZONE_MOVABLE)) && (dropzoneNode=dragNode.inside(DROPZONE_BRACKETS));
+                if (dropzoneNode && dragNode.rectangleInside(dropzoneNode)) {
                     moveInsideDropzone = function(hasMatch, nodeSource, nodeDrag, shiftX, shiftY) {
                         hasMatch && nodeSource.setXY(nodeSource+shiftX, nodeSource+shiftY, constrainRectangle);
 
@@ -571,30 +572,24 @@ module.exports = function (window) {
                     // reset its position, only now constrain it to the dropzondenode
                     // we need to specify exactly the droparea: because we don't want to compare to any
                     // scrollWidth/scrollHeight, but exaclty to the visible part of the dropzone
-                    dropzoneNode = dragNode.inside(DROPZONE_BRACKETS);
-                    if (dropzoneNode) {
-                        dropzoneDelegatedDraggable = dropzoneNode.getAttr(DD_MINUSDRAGGABLE);
-                        dropzoneIsDelegated = dropzoneDelegatedDraggable && (dropzoneNode.getAttr(DD_MINUSDRAGGABLE)!=='true');
-                        borderLeft = parseInt(dropzoneNode.getStyle(BORDER_LEFT_WIDTH), 10);
-                        borderTop = parseInt(dropzoneNode.getStyle(BORDER_TOP_WIDTH), 10);
-                        constrainRectangle = {
-                            x: dropzoneNode.getX() + borderLeft,
-                            y: dropzoneNode.getY() + borderTop,
-                            w: dropzoneNode.offsetWidth - borderLeft - parseInt(dropzoneNode.getStyle(BORDER_RIGHT_WIDTH), 10),
-                            h: dropzoneNode.offsetHeight - borderTop - parseInt(dropzoneNode.getStyle(BORDER_BOTTOM_WIDTH), 10)
-                        };
-                        dragNodeX = dragNode.getX();
-                        dragNodeY = dragNode.getY();
-                    }
+                    dropzoneDelegatedDraggable = dropzoneNode.getAttr(DD_MINUSDRAGGABLE);
+                    dropzoneIsDelegated = dropzoneDelegatedDraggable && (dropzoneNode.getAttr(DD_MINUSDRAGGABLE)!=='true');
+                    borderLeft = parseInt(dropzoneNode.getStyle(BORDER_LEFT_WIDTH), 10);
+                    borderTop = parseInt(dropzoneNode.getStyle(BORDER_TOP_WIDTH), 10);
+                    constrainRectangle = {
+                        x: dropzoneNode.getX() + borderLeft,
+                        y: dropzoneNode.getY() + borderTop,
+                        w: dropzoneNode.offsetWidth - borderLeft - parseInt(dropzoneNode.getStyle(BORDER_RIGHT_WIDTH), 10),
+                        h: dropzoneNode.offsetHeight - borderTop - parseInt(dropzoneNode.getStyle(BORDER_BOTTOM_WIDTH), 10)
+                    };
+                    dragNodeX = dragNode.getX();
+                    dragNodeY = dragNode.getY();
                     relatives && relatives.forEach(
                         function(item) {
                             (sourceNode!==item.sourceNode) && moveInsideDropzone(dropzoneNode, item.sourceNode, item.dragNode, item.shiftX, item.shiftY);
                         }
                     );
                     moveInsideDropzone(dropzoneNode, sourceNode, dragNode, 0, 0);
-
-
-
                 }
                 else {
                     instance.restoreDraggables();
