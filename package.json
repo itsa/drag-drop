@@ -30,6 +30,7 @@
         "event-dom": "itsa/event-dom",
         "polyfill": "itsa/polyfill",
         "utils": "itsa/utils",
+        "drag": "itsa/drag",
         "js-ext": "itsa/js-ext",
         "dom-ext": "itsa/dom-ext",
         "window-ext": "itsa/window-ext"
