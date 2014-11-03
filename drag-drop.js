@@ -403,8 +403,8 @@ module.exports = function (window) {
                     dragNode = ddProps.dragNode;
                 ddProps.mouseOverNode = e.target;
                 if (e2.clientX) {
-                    ddProps.xMouseLast = e2.clientX + window.getScrollLeft();
-                    ddProps.yMouseLast = e2.clientY + window.getScrollTop();
+                    ddProps.xMouseLast = e2.clientX + window.scrollLeft;
+                    ddProps.yMouseLast = e2.clientY + window.scrollTop;
                 }
                 dropzones.forEach(
                     function(dropzone) {
@@ -450,7 +450,7 @@ module.exports = function (window) {
                                             effectAllowed = (!dropzoneMove && !dropzoneCopy) || (dropzoneCopy && (dropEffect===COPY)) || (dropzoneMove && (dropEffect===MOVE));
                                             return !effectAllowed;
                                         }
-                                        return !dropzone.insidePos((e3.clientX || e3.center.x)+window.getScrollLeft(), (e3.clientY || e3.center.y)+window.getScrollTop());
+                                        return !dropzone.insidePos((e3.clientX || e3.center.x)+window.scrollLeft, (e3.clientY || e3.center.y)+window.scrollTop);
                                     }
                                 );
                                 dragOverPromise.finally(
@@ -621,16 +621,16 @@ module.exports = function (window) {
                 borderLeft = parseInt(dropzoneNode.getStyle(BORDER_LEFT_WIDTH), 10);
                 borderTop = parseInt(dropzoneNode.getStyle(BORDER_TOP_WIDTH), 10);
                 constrainRectangle = {
-                    x: dropzoneNode.getX() + borderLeft,
-                    y: dropzoneNode.getY() + borderTop,
+                    x: dropzoneNode.left + borderLeft,
+                    y: dropzoneNode.top + borderTop,
                     w: dropzoneNode.offsetWidth - borderLeft - parseInt(dropzoneNode.getStyle(BORDER_RIGHT_WIDTH), 10),
                     h: dropzoneNode.offsetHeight - borderTop - parseInt(dropzoneNode.getStyle(BORDER_BOTTOM_WIDTH), 10)
                 };
                 isCopied = (ctrlPressed && instance.allowCopy(dragNode)) || instance.onlyCopy(dragNode);
                 if (isCopied) {
                     // backup x,y before move it into dropzone (which leads to new x,y)
-                    dragNodeX = dragNode.getX();
-                    dragNodeY = dragNode.getY();
+                    dragNodeX = dragNode.left;
+                    dragNodeY = dragNode.top;
                     // now move the dragNode into dropzone
                     relatives && relatives.forEach(
                         function(item) {
@@ -640,8 +640,8 @@ module.exports = function (window) {
                     copyToDropzone(sourceNode, dragNode, 0 ,0);
                 }
                 else {
-                    dragNodeX = dragNode.getX();
-                    dragNodeY = dragNode.getY();
+                    dragNodeX = dragNode.left;
+                    dragNodeY = dragNode.top;
                     relatives && relatives.forEach(
                         function(item) {
                            (dragNode!==item.dragNode) && moveToDropzone(item.sourceNode, item.dragNode, item.shiftX, item.shiftY);
@@ -685,13 +685,13 @@ module.exports = function (window) {
                     borderLeft = parseInt(dropzoneNode.getStyle(BORDER_LEFT_WIDTH), 10);
                     borderTop = parseInt(dropzoneNode.getStyle(BORDER_TOP_WIDTH), 10);
                     constrainRectangle = {
-                        x: dropzoneNode.getX() + borderLeft,
-                        y: dropzoneNode.getY() + borderTop,
+                        x: dropzoneNode.left + borderLeft,
+                        y: dropzoneNode.top + borderTop,
                         w: dropzoneNode.offsetWidth - borderLeft - parseInt(dropzoneNode.getStyle(BORDER_RIGHT_WIDTH), 10),
                         h: dropzoneNode.offsetHeight - borderTop - parseInt(dropzoneNode.getStyle(BORDER_BOTTOM_WIDTH), 10)
                     };
-                    dragNodeX = dragNode.getX();
-                    dragNodeY = dragNode.getY();
+                    dragNodeX = dragNode.left;
+                    dragNodeY = dragNode.top;
                     relatives && relatives.forEach(
                         function(item) {
                             (sourceNode!==item.sourceNode) && moveInsideDropzone(dropzoneNode, item.sourceNode, item.dragNode, item.shiftX, item.shiftY);
@@ -805,8 +805,8 @@ module.exports = function (window) {
             if (emitDropzoneEvent) {
                 dropzones = window.document.getAll(DROPZONE_BRACKETS);
                 if (dropzones) {
-                    winScrollTop = window.getScrollTop();
-                    winScrollLeft = window.getScrollLeft();
+                    winScrollTop = window.scrollTop;
+                    winScrollLeft = window.scrollLeft;
                     dropzones.forEach(
                         function(dropzone) {
                             if (dropzone.insidePos(x, y) && !dropzone.insidePos(e.xMouse+winScrollLeft, e.yMouse+winScrollTop)) {
@@ -884,8 +884,8 @@ module.exports = function (window) {
                 winScrollTop, winScrollLeft;
             if (dragOverEvent) {
                 dragOverEvent.detach();
-                winScrollTop = window.getScrollTop();
-                winScrollLeft = window.getScrollLeft();
+                winScrollTop = window.scrollTop;
+                winScrollLeft = window.scrollLeft;
                 ddProps.dragOverList.forEach(function(promise) {
                     promise.fulfill(e.dropTarget && e.dropTarget.insidePos(mouseX+winScrollLeft, mouseY+winScrollTop));
                 });
