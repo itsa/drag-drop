@@ -32,7 +32,7 @@
         "utils": "itsa/utils",
         "drag": "itsa/drag",
         "js-ext": "itsa/js-ext",
-        "dom-ext": "itsa/dom-ext",
+        "vdom": "itsa/vdom",
         "window-ext": "itsa/window-ext"
     },
     "devDependencies": {
