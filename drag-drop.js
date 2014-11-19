@@ -178,9 +178,9 @@ var DRAG = 'drag',
     DROPZONE_OVER = DROPZONE+'-over',
     DROPZONE_DROP = DROPZONE+'-'+DROP,
     DD_DROPZONE = DD_MINUS+DROPZONE,
-    NO_TRANS_CLASS = 'el-notrans', // delivered by `dom-ext`
+    NO_TRANS_CLASS = 'el-notrans', // delivered by `vdom`
     DD_HIDDEN_SOURCE_CLASS = DD_MINUS+'hidden-'+SOURCE,
-    INVISIBLE_CLASS = 'el-invisible', // delivered by `dom-ext`
+    INVISIBLE_CLASS = 'el-invisible', // delivered by `vdom`
     DD_TRANSITION_CLASS = DD_MINUS+'transition',
     DD_OPACITY_CLASS = DD_MINUS+'opacity',
     HIGH_Z_CLASS = DD_MINUS+'high-z',
@@ -225,13 +225,28 @@ require('js-ext');
 require('./css/drag-drop.css');
 
 module.exports = function (window) {
+
+    if (!window._ITSAmodules) {
+        Object.defineProperty(window, '_ITSAmodules', {
+            configurable: false,
+            enumerable: false,
+            writable: false,
+            value: {} // `writable` is false means we cannot chance the value-reference, but we can change {} its members
+        });
+    }
+
+    if (window._ITSAmodules.DragDrop) {
+        return window._ITSAmodules.DragDrop; // DragDrop was already created
+    }
+
     var Event = require('event-dom')(window),
-        NodePlugin = require('dom-ext')(window).Plugins.NodePlugin,
+        NodePlugin = require('vdom')(window).Plugins.NodePlugin,
         DragModule = require('drag')(window),
         $superInit = DragModule.DD.init,
         ctrlPressed = false,
         dropEffect = MOVE,
-        DD, NodeDropzone;
+        DOCUMENT = window.document,
+        DD, NodeDropzone, DD_Object;
 
     require('window-ext')(window);
 
@@ -403,8 +418,8 @@ module.exports = function (window) {
                     dragNode = ddProps.dragNode;
                 ddProps.mouseOverNode = e.target;
                 if (e2.clientX) {
-                    ddProps.xMouseLast = e2.clientX + window.scrollLeft;
-                    ddProps.yMouseLast = e2.clientY + window.scrollTop;
+                    ddProps.xMouseLast = e2.clientX + window.getScrollLeft();
+                    ddProps.yMouseLast = e2.clientY + window.getScrollTop();
                 }
                 dropzones.forEach(
                     function(dropzone) {
@@ -450,7 +465,7 @@ module.exports = function (window) {
                                             effectAllowed = (!dropzoneMove && !dropzoneCopy) || (dropzoneCopy && (dropEffect===COPY)) || (dropzoneMove && (dropEffect===MOVE));
                                             return !effectAllowed;
                                         }
-                                        return !dropzone.insidePos((e3.clientX || e3.center.x)+window.scrollLeft, (e3.clientY || e3.center.y)+window.scrollTop);
+                                        return !dropzone.insidePos((e3.clientX || e3.center.x)+window.getScrollLeft(), (e3.clientY || e3.center.y)+window.getScrollTop());
                                     }
                                 );
                                 dragOverPromise.finally(
@@ -803,10 +818,10 @@ module.exports = function (window) {
             dragNode.setXY(x, y);
             // now we might need to fire a last `dropzone` event when the dragged element returns to a dropzone when it wasn't before set it back
             if (emitDropzoneEvent) {
-                dropzones = window.document.getAll(DROPZONE_BRACKETS);
+                dropzones = DOCUMENT.getAll(DROPZONE_BRACKETS);
                 if (dropzones) {
-                    winScrollTop = window.scrollTop;
-                    winScrollLeft = window.scrollLeft;
+                    winScrollTop = window.getScrollTop();
+                    winScrollLeft = window.getScrollLeft();
                     dropzones.forEach(
                         function(dropzone) {
                             if (dropzone.insidePos(x, y) && !dropzone.insidePos(e.xMouse+winScrollLeft, e.yMouse+winScrollTop)) {
@@ -884,8 +899,8 @@ module.exports = function (window) {
                 winScrollTop, winScrollLeft;
             if (dragOverEvent) {
                 dragOverEvent.detach();
-                winScrollTop = window.scrollTop;
-                winScrollLeft = window.scrollLeft;
+                winScrollTop = window.getScrollTop();
+                winScrollLeft = window.getScrollLeft();
                 ddProps.dragOverList.forEach(function(promise) {
                     promise.fulfill(e.dropTarget && e.dropTarget.insidePos(mouseX+winScrollLeft, mouseY+winScrollTop));
                 });
@@ -954,7 +969,7 @@ module.exports = function (window) {
                 instance.notify(function(e, ddProps) {
                     var dropzones, sourceNode,
                         dragNode = ddProps.dragNode,
-                        dropzoneSpecified = ddProps.dropzoneSpecified = dragNode.hasAttr(DD_DROPZONE) || (e.emitter!==UI),
+                        dropzoneSpecified = ddProps.dropzoneSpecified = dragNode.hasAttr(DD_DROPZONE) || dragNode.hasAttr(DD_EMITTER) || (e.emitter!==UI),
                         setupDragnode = function(nodeSource, nodeDrag, shiftX, shiftY) {
                             if (dropEffect===COPY) {
                                 nodeDrag.setClass([DD_OPACITY_CLASS, DD_COPIED_CLASS]);
@@ -965,13 +980,13 @@ module.exports = function (window) {
                             }
                             nodeDrag.setClass(INVISIBLE_CLASS);
                             nodeDrag.setInlineStyle(POSITION, ABSOLUTE);
-                            nodeSource.parentNode.append(nodeDrag, nodeSource);
+                            nodeSource.parentNode.append(nodeDrag, false, nodeSource);
                             nodeDrag.setXY(ddProps.xMouseLast+shiftX, ddProps.yMouseLast+shiftY, ddProps.constrain, true);
                             nodeDrag.removeClass(INVISIBLE_CLASS);
                         };
                     if (dropzoneSpecified) {
                         sourceNode = e.sourceNode = ddProps.sourceNode = ddProps.dragNode;
-                        e.dragNode = ddProps.dragNode = ddProps.sourceNode.clone(true);
+                        e.dragNode = ddProps.dragNode = ddProps.sourceNode.cloneNode(true);
                         // correct sourceNode class: reset CSS set by `drag`:
                         sourceNode.removeClass([NO_TRANS_CLASS, HIGH_Z_CLASS, DD_DRAGGING_CLASS]);
                         // also correct inline CSS style for `left` and `top` of the sourceNode:
@@ -985,13 +1000,13 @@ module.exports = function (window) {
                             ddProps.relatives.forEach(
                                 function(item) {
                                     item.sourceNode = item.dragNode;
-                                    item.dragNode = item.dragNode.clone(true);
+                                    item.dragNode = item.dragNode.cloneNode(true);
                                     setupDragnode(item.sourceNode, item.dragNode, item.shiftX, item.shiftY);
                                     e.relativeDragNodes.push(item.dragNode);
                                 }
                             );
                         }
-                        dropzones = window.document.getAll(DROPZONE_BRACKETS);
+                        dropzones = DOCUMENT.getAll(DROPZONE_BRACKETS);
                         if (dropzones.length>0) {
                             // create a custom over-event that fires exactly when the mouse is over any dropzone
                             // we cannot use `hover`, because that event fails when there is an absolute floated element outsize `dropzone`
@@ -1055,11 +1070,14 @@ module.exports = function (window) {
         }
     );
 
-    return {
+    DD_Object = window._ITSAmodules.DragDrop = {
         DD: DragModule.DD.merge(DD, true),
         Plugins: {
             NodeDD: DragModule.Plugins.NodeDD,
             NodeDropzone: NodeDropzone
         }
     };
+
+    return DD_Object;
+
 };
