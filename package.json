@@ -29,7 +29,6 @@
     "dependencies": {
         "event-dom": "itsa/event-dom",
         "polyfill": "itsa/polyfill",
-        "utils": "itsa/utils",
         "drag": "itsa/drag",
         "js-ext": "itsa/js-ext",
         "vdom": "itsa/vdom",

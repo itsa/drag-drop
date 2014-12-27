@@ -214,11 +214,9 @@ var DRAG = 'drag',
     TOP = 'top',
     POSITION = 'position',
     ABSOLUTE = 'absolute',
-    TRANS_END = 'transitionend',
     TRUE = 'true',
     DD_MINUSDRAGGABLE = DD_MINUS+DRAGGABLE,
-    PLUGIN_ATTRS = [DD_MINUS+DROPZONE, CONSTRAIN_ATTR, DD_EMITTER, DD_HANDLE, DD_EFFECT_ALLOWED, DD_DROPZONE_MOVABLE],
-    LATER = require('utils').later;
+    PLUGIN_ATTRS = [DD_MINUS+DROPZONE, CONSTRAIN_ATTR, DD_EMITTER, DD_HANDLE, DD_EFFECT_ALLOWED, DD_DROPZONE_MOVABLE];
 
 require('polyfill/polyfill-base.js');
 require('js-ext');
@@ -600,7 +598,7 @@ module.exports = function (window) {
                     dropzoneNode.append(nodeDrag);
                     nodeDrag.removeClass([DD_OPACITY_CLASS, DD_TRANSITION_CLASS, HIGH_Z_CLASS, DD_DRAGGING_CLASS, NO_TRANS_CLASS, DD_MASTER_CLASS, DD_COPIED_CLASS]);
                     nodeSource.removeClass(DD_SOURCE_ISCOPIED_CLASS);
-                    nodeDrag.setXY(dragNodeX+shiftX, dragNodeY+shiftY, constrainRectangle);
+                    nodeDrag.setXY(dragNodeX+shiftX, dragNodeY+shiftY, constrainRectangle, true);
                     // make the new HtmlElement non-copyable: it only can be replaced inside its dropzone
                     dropzoneIsDelegated || nodeDrag.setAttr(DD_EFFECT_ALLOWED, MOVE).setAttr(DD_DROPZONE_MOVABLE, TRUE); // to make moving inside the dropzone possible without return to its startposition
                 };
@@ -624,7 +622,7 @@ module.exports = function (window) {
                         }
                     });
                     dropzoneNode.append(nodeSource);
-                    nodeSource.setXY(dragNodeX+shiftX, dragNodeY+shiftY, constrainRectangle);
+                    nodeSource.setXY(dragNodeX+shiftX, dragNodeY+shiftY, constrainRectangle, true);
                     // make the new HtmlElement non-copyable: it only can be replaced inside its dropzone
                     dropzoneIsDelegated || nodeSource.setAttr(DD_EFFECT_ALLOWED, MOVE).setAttr(DD_DROPZONE_MOVABLE, TRUE); // to make moving inside the dropzone possible without return to its startposition
                     nodeSource.removeClass(DD_HIDDEN_SOURCE_CLASS);
@@ -672,7 +670,7 @@ module.exports = function (window) {
                 (dragNode.hasAttr(DD_DROPZONE_MOVABLE)) && (dropzoneNode=dragNode.inside(DROPZONE_BRACKETS));
                 if (dropzoneNode && dragNode.rectangleInside(dropzoneNode)) {
                     moveInsideDropzone = function(hasMatch, nodeSource, nodeDrag, shiftX, shiftY) {
-                        hasMatch && nodeSource.setXY(nodeSource+shiftX, nodeSource+shiftY, constrainRectangle);
+                        hasMatch && nodeSource.setXY(nodeSource+shiftX, nodeSource+shiftY, constrainRectangle, true);
                         if (delegatedDragging) {
                             nodeSource.removeClass(DEL_DRAGGABLE);
                         }
@@ -781,12 +779,12 @@ module.exports = function (window) {
                 winScrollTop,
                 winScrollLeft,
                 dropzones,
-                tearDown = function(notransRemoval) {
+                tearDown = function() {
                     // dragNode might be gone when this method is called for the second time
                     // therefor check its existance:
                     if (!tearedDown) {
                         tearedDown = true;
-                        notransRemoval || (dragNode.removeEventListener && dragNode.removeEventListener(TRANS_END, tearDown, true));
+// notransRemoval || (dragNode.removeEventListener && dragNode.removeEventListener(TRANS_END, tearDown, true));
                         if (dropzoneSpecified) {
                             sourceNode.removeClass([DD_HIDDEN_SOURCE_CLASS, DEL_DRAGGABLE, DD_MASTER_CLASS, DD_SOURCE_ISCOPIED_CLASS]);
                             dragNode.remove();
@@ -810,12 +808,12 @@ module.exports = function (window) {
             // transitions only work with IE10+, and that browser has addEventListener
             // when it doesn't have, it doesn;t harm to leave the transitionclass on: it would work anyway
             // nevertheless we will remove it with a timeout
-            if (dragNode.addEventListener) {
-                dragNode.addEventListener(TRANS_END, tearDown, true);
-            }
-            // ALWAYS tearDowm after delay --> when there was no repositioning, there never will be a transition-event
-            LATER(tearDown, 260);
-            dragNode.setXY(x, y);
+// if (dragNode.addEventListener) {
+    // dragNode.addEventListener(TRANS_END, tearDown, true);
+// }
+// ALWAYS tearDowm after delay --> when there was no repositioning, there never will be a transition-event
+// LATER(tearDown, 260);
+            dragNode.setXY(x, y).finally(tearDown);
             // now we might need to fire a last `dropzone` event when the dragged element returns to a dropzone when it wasn't before set it back
             if (emitDropzoneEvent) {
                 dropzones = DOCUMENT.getAll(DROPZONE_BRACKETS);
