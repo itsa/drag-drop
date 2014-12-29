@@ -418,6 +418,10 @@ module.exports = function (window) {
             return Event.after([mobileEvents ? PANMOVE : MOUSEMOVE, DD_FAKE_MOUSEMOVE], function(e2) {
                 var overDropzone = false,
                     dragNode = ddProps.dragNode;
+                if (typeof e2.center==='object') {
+                    e2.clientX = e2.center.x;
+                    e2.clientY = e2.center.y;
+                }
                 ddProps.mouseOverNode = e.target;
                 if (e2.clientX) {
                     ddProps.xMouseLast = e2.clientX + window.getScrollLeft();
