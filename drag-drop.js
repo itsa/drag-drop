@@ -173,7 +173,7 @@ var DRAG = 'drag',
     DD_SOURCE_ISCOPIED_CLASS = DD_MINUS+COPY+SOURCE,
     DD_COPIED_CLASS = DD_MINUS+COPY,
     DD_DROPZONE_MOVABLE = DD_MINUS+DROPZONE+'-movable',
-    CONSTRAIN_ATTR = 'xy-constrain',
+    CONSTRAIN_ATTR = 'constrain-selector',
     MOUSE = 'mouse',
     DROPZONE_OVER = DROPZONE+'-over',
     DROPZONE_DROP = DROPZONE+'-'+DROP,
@@ -203,7 +203,7 @@ var DRAG = 'drag',
     PANMOVE = 'pan'+MOVE,
     DD_FAKE_MOUSEMOVE = DD_FAKE+MOUSEMOVE,
     UI = 'UI',
-    DROPZONE_BRACKETS = '[' + DROPZONE + ']',
+    DROPZONE_BRACKETS = '[' + DD_DROPZONE + ']',
     DD_EFFECT_ALLOWED = DD_MINUS+'effect-allowed',
     BORDER = 'border',
     WIDTH = 'width',
@@ -217,7 +217,7 @@ var DRAG = 'drag',
     ABSOLUTE = 'absolute',
     TRUE = 'true',
     DD_MINUSDRAGGABLE = DD_MINUS+DRAGGABLE,
-    PLUGIN_ATTRS = [DD_MINUS+DROPZONE, CONSTRAIN_ATTR, DD_EMITTER, DD_HANDLE, DD_EFFECT_ALLOWED, DD_DROPZONE_MOVABLE];
+    PLUGIN_ATTRS = [DD_DROPZONE, CONSTRAIN_ATTR, DD_EMITTER, DD_HANDLE, DD_EFFECT_ALLOWED, DD_DROPZONE_MOVABLE];
 
 require('polyfill/polyfill-base.js');
 require('js-ext');
@@ -239,7 +239,7 @@ module.exports = function (window) {
     }
 
     var Event = require('event-dom')(window),
-        NodePlugin = require('vdom')(window).Plugins.NodePlugin,
+        nodePlugin = require('vdom')(window).Plugins.nodePlugin,
         DragModule = require('drag')(window),
         $superInit = DragModule.DD.init,
         ctrlPressed = false,
@@ -248,7 +248,7 @@ module.exports = function (window) {
         isMobile = require('useragent')(window).isMobile,
         supportHammer = !!Event.Hammer,
         mobileEvents = supportHammer && isMobile,
-        DD, NodeDropzone, DD_Object;
+        DD, DD_Object;
 
     require('window-ext')(window);
 
@@ -434,7 +434,7 @@ module.exports = function (window) {
                             overDropzone = true;
                             return;
                         }
-                        var dropzoneAccept = dropzone.getAttr(DROPZONE) || '',
+                        var dropzoneAccept = dropzone.getAttr(DD_DROPZONE) || '',
                             dropzoneMove = REGEXP_MOVE.test(dropzoneAccept),
                             dropzoneCopy = REGEXP_COPY.test(dropzoneAccept),
                             dropzoneDefDraggable = dragNode.getAttr(DD_DROPZONE),
@@ -465,7 +465,7 @@ module.exports = function (window) {
                                     function(e3) {
                                         var effectAllowed, dropzoneAccept, dropzoneMove, dropzoneCopy;
                                         if (e3.type===DD_FAKE_MOUSEMOVE) {
-                                            dropzoneAccept = dropzone.getAttr(DROPZONE) || '';
+                                            dropzoneAccept = dropzone.getAttr(DD_DROPZONE) || '';
                                             dropzoneMove = REGEXP_MOVE.test(dropzoneAccept);
                                             dropzoneCopy = REGEXP_COPY.test(dropzoneAccept);
                                             effectAllowed = (!dropzoneMove && !dropzoneCopy) || (dropzoneCopy && (dropEffect===COPY)) || (dropzoneMove && (dropEffect===MOVE));
@@ -1060,27 +1060,11 @@ module.exports = function (window) {
 
     };
 
-    NodeDropzone = NodePlugin.subClass(
-        function (config) {
-            var dropzone = TRUE,
-                emitter;
-            config || (config={});
-            if (config.copy && !config.move) {
-                dropzone = COPY;
-            }
-            else if (!config.copy && config.move) {
-                dropzone = MOVE;
-            }
-            (emitter=config.emitter) && (dropzone+=' '+EMITTER+'='+emitter);
-            this.dropzone = dropzone;
-        }
-    );
-
     DD_Object = window._ITSAmodules.DragDrop = {
         DD: DragModule.DD.merge(DD, true),
         Plugins: {
-            NodeDD: DragModule.Plugins.NodeDD,
-            NodeDropzone: NodeDropzone
+            nodeDD: DragModule.Plugins.nodeDD,
+            nodeDropzone: nodePlugin.definePlugin('dd', {dropzone: 'true'})
         }
     };
 
