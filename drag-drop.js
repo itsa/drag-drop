@@ -225,7 +225,7 @@ require('./css/drag-drop.css');
 
 module.exports = function (window) {
 
-    window._ITSAmodules || window.protectedProp('_ITSAmodules', {});
+    window._ITSAmodules || Object.protectedProp(window, '_ITSAmodules', {});
 
     if (window._ITSAmodules.DragDrop) {
         return window._ITSAmodules.DragDrop; // DragDrop was already created
