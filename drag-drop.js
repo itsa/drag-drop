@@ -244,6 +244,7 @@ module.exports = function (window) {
         DD, DD_Object;
 
     require('vdom')(window);
+    require('node-plugin')(window);
     require('window-ext')(window);
 
     DD = {
