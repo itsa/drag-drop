@@ -34,7 +34,7 @@
         "polyfill": "itsa/polyfill",
         "drag": "itsa/drag",
         "js-ext": "itsa/js-ext",
-        "node-plugin": "node-plugin",
+        "node-plugin": "itsa/node-plugin",
         "vdom": "itsa/vdom",
         "window-ext": "itsa/window-ext"
     },
