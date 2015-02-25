@@ -176,7 +176,8 @@ var DRAG = 'drag',
     DD_HANDLE = DD_MINUS+'handle',
     DD_SOURCE_ISCOPIED_CLASS = DD_MINUS+COPY+SOURCE,
     DD_COPIED_CLASS = DD_MINUS+COPY,
-    DD_DROPZONE_MOVABLE = DD_MINUS+DROPZONE+'-movable',
+    DROPZONE_MOVABLE = DROPZONE+'-movable',
+    DD_DROPZONE_MOVABLE = DD_MINUS+DROPZONE_MOVABLE,
     CONSTRAIN_ATTR = 'constrain-selector',
     MOUSE = 'mouse',
     DROPZONE_OVER = DROPZONE+'-over',
@@ -208,7 +209,8 @@ var DRAG = 'drag',
     DD_FAKE_MOUSEMOVE = DD_FAKE+MOUSEMOVE,
     UI = 'UI',
     DROPZONE_BRACKETS = '[' + DZ_DROPZONE + ']',
-    DD_EFFECT_ALLOWED = DD_MINUS+'effect-allowed',
+    EFFECT_ALLOWED = 'effect-allowed',
+    DD_EFFECT_ALLOWED = DD_MINUS+EFFECT_ALLOWED,
     BORDER = 'border',
     WIDTH = 'width',
     BORDER_LEFT_WIDTH = BORDER+'-left-'+WIDTH,
@@ -582,7 +584,7 @@ module.exports = function (window) {
                 dropzoneIsDelegated = dropzoneDelegatedDraggable && (dropzoneNode.getAttr(DD_MINUSDRAGGABLE)!=='true');
                 copyToDropzone = function(nodeSource, nodeDrag, shiftX, shiftY) {
                     if (delegatedDragging) {
-                        dropzoneIsDelegated || (nodeDrag.plugin.dd.model[DD_MINUSDRAGGABLE]=TRUE);
+                        dropzoneIsDelegated || (nodeDrag.plugin.dd.model[DRAGGABLE]=TRUE);
                         nodeDrag.removeClass(DEL_DRAGGABLE);
                     }
                     PLUGIN_ATTRS.forEach(function(attribute) {
@@ -606,14 +608,14 @@ module.exports = function (window) {
                     nodeDrag.setXY(dragNodeX+shiftX, dragNodeY+shiftY, constrainRectangle, true);
                     // make the new HtmlElement non-copyable: it only can be replaced inside its dropzone
                     if (!dropzoneIsDelegated) {
-                        nodeDrag.plugin.dd.model[DD_EFFECT_ALLOWED] = MOVE;
-                        nodeDrag.plugin.dd.model[DD_DROPZONE_MOVABLE] = TRUE;
+                        nodeDrag.plugin.dd.model[EFFECT_ALLOWED] = MOVE;
+                        nodeDrag.plugin.dd.model[DROPZONE_MOVABLE] = TRUE;
                     }
                 };
                 moveToDropzone = function(nodeSource, nodeDrag, shiftX, shiftY) {
                     nodeSource.setInlineStyle(POSITION, ABSOLUTE);
                     if (delegatedDragging) {
-                        dropzoneIsDelegated || (nodeSource.plugin.dd.model[DD_MINUSDRAGGABLE]=TRUE);
+                        dropzoneIsDelegated || (nodeSource.plugin.dd.model[DRAGGABLE]=TRUE);
                         nodeSource.removeClass(DEL_DRAGGABLE);
                     }
                     PLUGIN_ATTRS.forEach(function(attribute) {
@@ -633,8 +635,8 @@ module.exports = function (window) {
                     nodeSource.setXY(dragNodeX+shiftX, dragNodeY+shiftY, constrainRectangle, true);
                     // make the new HtmlElement non-copyable: it only can be replaced inside its dropzone
                     if (!dropzoneIsDelegated) {
-                        nodeDrag.plugin.dd.model[DD_EFFECT_ALLOWED] = MOVE;
-                        nodeDrag.plugin.dd.model[DD_DROPZONE_MOVABLE] = TRUE;
+                        nodeSource.plugin.dd.model[EFFECT_ALLOWED] = MOVE;
+                        nodeSource.plugin.dd.model[DROPZONE_MOVABLE] = TRUE;
                     }
                     nodeSource.removeClass(DD_HIDDEN_SOURCE_CLASS);
                     nodeDrag.remove();
