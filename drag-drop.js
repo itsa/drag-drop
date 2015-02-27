@@ -239,14 +239,14 @@ module.exports = function (window) {
 
     var Event = require('event-dom')(window),
         DragModule = require('drag')(window),
-        $superInit = DragModule.DD.init,
+        $superInit = DragModule.init,
         ctrlPressed = false,
         dropEffect = MOVE,
         DOCUMENT = window.document,
         isMobile = require('useragent')(window).isMobile,
         supportHammer = !!Event.Hammer,
         mobileEvents = supportHammer && isMobile,
-        DD, DD_Object;
+        DD;
 
     require('vdom')(window);
     require('node-plugin')(window);
@@ -1065,11 +1065,11 @@ module.exports = function (window) {
 
     };
 
-    DragModule.DD.merge(DD, {force: true});
-    DragModule.Plugins.DD.mergePrototypes({
+    DragModule.merge(DD, {force: true});
+
+    window._ITSAPlugins.dd.mergePrototypes({
         attrs: {
             draggable: 'string',
-            constrain: 'string',
             handle: 'string',
             emitter: 'string',
             'effect-allowed': 'string',
@@ -1078,21 +1078,17 @@ module.exports = function (window) {
         }
     }, true);
 
-    DD_Object = window._ITSAmodules.DragDrop = {
-        DD: DragModule.DD,
-        Plugins: {
-            DD: DragModule.Plugins.DD,
-            Dropzone: DOCUMENT.definePlugin('dz', null, {
-                attrs: {
-                    dropzone: 'string'
-                },
-                defaults: {
-                    dropzone: 'true'
-                }
-            })
+    DOCUMENT.definePlugin('dz', null, {
+        attrs: {
+            dropzone: 'string'
+        },
+        defaults: {
+            dropzone: 'true'
         }
-    };
+    });
 
-    return DD_Object;
+    window._ITSAmodules.DragDrop = DragModule.DD;
+
+    return DragModule;
 
 };
