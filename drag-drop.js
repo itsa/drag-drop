@@ -305,7 +305,7 @@ module.exports = function (window) {
                 PLUGIN_ATTRS.forEach(function(attribute) {
                     var data = '_del_'+attribute;
                     if (dragNode.getData(data)) {
-                        delete dragNode.plugin.dd.model[attribute];
+                        delete dragNode._plugin.dd.model[attribute];
                         dragNode.removeData(data);
                     }
                 });
@@ -584,7 +584,7 @@ module.exports = function (window) {
                 dropzoneIsDelegated = dropzoneDelegatedDraggable && (dropzoneNode.getAttr(DD_MINUSDRAGGABLE)!=='true');
                 copyToDropzone = function(nodeSource, nodeDrag, shiftX, shiftY) {
                     if (delegatedDragging) {
-                        dropzoneIsDelegated || (nodeDrag.plugin.dd.model[DRAGGABLE]=TRUE);
+                        dropzoneIsDelegated || (nodeDrag._plugin.dd.model[DRAGGABLE]=TRUE);
                         nodeDrag.removeClass(DEL_DRAGGABLE);
                     }
                     PLUGIN_ATTRS.forEach(function(attribute) {
@@ -592,12 +592,12 @@ module.exports = function (window) {
                             attr = sourceNode.getData(data);
                         if (attr) {
                             if (dropzoneIsDelegated) {
-                                delete nodeDrag.plugin.dd.model[attribute];
+                                nodeDrag.removeAttr(attribute);
                             }
                             else {
-                                nodeDrag.plugin.dd.model[attribute] = attr;
+                                nodeDrag._plugin.dd.model[attribute] = attr;
                             }
-                            delete nodeSource.plugin.dd.model[attribute];
+                            delete nodeSource._plugin.dd.model[attribute];
                             nodeSource.removeData(data);
                             nodeDrag.removeData(data);
                         }
@@ -608,14 +608,14 @@ module.exports = function (window) {
                     nodeDrag.setXY(dragNodeX+shiftX, dragNodeY+shiftY, constrainRectangle, true);
                     // make the new HtmlElement non-copyable: it only can be replaced inside its dropzone
                     if (!dropzoneIsDelegated) {
-                        nodeDrag.plugin.dd.model[EFFECT_ALLOWED] = MOVE;
-                        nodeDrag.plugin.dd.model[DROPZONE_MOVABLE] = TRUE;
+                        nodeDrag._plugin.dd.model[EFFECT_ALLOWED] = MOVE;
+                        nodeDrag._plugin.dd.model[DROPZONE_MOVABLE] = TRUE;
                     }
                 };
                 moveToDropzone = function(nodeSource, nodeDrag, shiftX, shiftY) {
                     nodeSource.setInlineStyle(POSITION, ABSOLUTE);
                     if (delegatedDragging) {
-                        dropzoneIsDelegated || (nodeSource.plugin.dd.model[DRAGGABLE]=TRUE);
+                        dropzoneIsDelegated || (nodeSource._plugin.dd.model[DRAGGABLE]=TRUE);
                         nodeSource.removeClass(DEL_DRAGGABLE);
                     }
                     PLUGIN_ATTRS.forEach(function(attribute) {
@@ -623,10 +623,10 @@ module.exports = function (window) {
                             attr = sourceNode.getData(data);
                         if (attr) {
                             if (dropzoneIsDelegated) {
-                                delete nodeSource.plugin.dd.model[attribute];
+                                nodeSource.removeAttr(attribute);
                             }
                             else {
-                                nodeSource.plugin.dd.model[attribute] = attr;
+                                nodeSource._plugin.dd.model[attribute] = attr;
                             }
                             nodeSource.removeData(data);
                         }
@@ -635,8 +635,8 @@ module.exports = function (window) {
                     nodeSource.setXY(dragNodeX+shiftX, dragNodeY+shiftY, constrainRectangle, true);
                     // make the new HtmlElement non-copyable: it only can be replaced inside its dropzone
                     if (!dropzoneIsDelegated) {
-                        nodeSource.plugin.dd.model[EFFECT_ALLOWED] = MOVE;
-                        nodeSource.plugin.dd.model[DROPZONE_MOVABLE] = TRUE;
+                        nodeSource._plugin.dd.model[EFFECT_ALLOWED] = MOVE;
+                        nodeSource._plugin.dd.model[DROPZONE_MOVABLE] = TRUE;
                     }
                     nodeSource.removeClass(DD_HIDDEN_SOURCE_CLASS);
                     nodeDrag.remove();
@@ -692,10 +692,10 @@ module.exports = function (window) {
                                 attr = dragNode.getData(data);
                             if (attr) {
                                 if (dropzoneIsDelegated) {
-                                    delete nodeSource.plugin.dd.model[attribute];
+                                    nodeSource.removeAttr(attribute);
                                 }
                                 else {
-                                    nodeSource.plugin.dd.model[attribute] = attr;
+                                    nodeSource._plugin.dd.model[attribute] = attr;
                                 }
                                 nodeSource.removeData(data);
                             }
@@ -811,7 +811,7 @@ module.exports = function (window) {
                             var data = '_del_'+attribute;
                             if (sourceNode.getData(data)) {
                                 sourceNode.removeData(data);
-                                delete sourceNode.plugin.dd.model[attribute];
+                                delete sourceNode._plugin.dd.model[attribute];
                             }
                         });
                     }
@@ -1066,7 +1066,6 @@ module.exports = function (window) {
     };
 
     DragModule.merge(DD, {force: true});
-
     window._ITSAPlugins.dd.mergePrototypes({
         attrs: {
             draggable: 'string',
@@ -1087,7 +1086,7 @@ module.exports = function (window) {
         }
     });
 
-    window._ITSAmodules.DragDrop = DragModule.DD;
+    window._ITSAmodules.DragDrop = DragModule;
 
     return DragModule;
 
