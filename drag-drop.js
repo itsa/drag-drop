@@ -1094,6 +1094,7 @@ module.exports = function (window) {
         attrs: {
             draggable: 'string',
             handle: 'string',
+            direction: 'string',
             emitter: 'string',
             'effect-allowed': 'string',
             'dropzone-movable': 'string',
